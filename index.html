@@ -43,25 +43,49 @@
       margin-top: 20px;
       font-size: 2.5em;
     }
+    
+  .input-row {
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.input-row input {
+  flex: 1;
+  font-size: 2.5em;
+  padding: 12px;
+}
+
+.input-row button {
+  font-size: 2.5em;
+  padding: 12px 20px;
+  white-space: nowrap;
+  width: auto;
+}
+
   </style>
 </head>
 <body>
   <h1>🌍 Gissa Flaggan</h1>
   <img id="flag" src="" alt="Flagga">
-  <div class="container">
-    <!-- Inmatningsfält med autocomplete via datalist -->
-    <input type="text" id="guess" placeholder="Landets namn" list="countryList">
+  <div class="input-row">
+  <input type="text" id="guess" placeholder="Landets namn" list="countryList">
     <datalist id="countryList">
       <!-- Alternativen fylls dynamiskt via JavaScript -->
     </datalist>
-    <!-- Knapp för att gissa -->
-    <button onclick="checkAnswer()">Gissa</button>
-    <!-- Knapp för att dela resultatet -->
-    <button onclick="shareResult()">Dela resultatet</button>
+  <button onclick="checkAnswer()">Gissa</button>
   </div>
-  <div id="feedback"></div>
+<div id="feedback"></div>
   <div id="scoreDisplay">Rätt: 0 av 0</div>
 
+  <div class="container">
+   
+     <!-- Knapp för att dela resultatet -->
+    <button onclick="shareResult()">Dela resultatet</button>
+  </div>
+  
 <script>
 // Listan med länder (observera att du kan utöka listan med alla länder)
 const countries = [
