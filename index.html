@@ -68,7 +68,7 @@
   </style>
 </head>
 <body>
-  <h1>🌍 Gissa Flaggan</h1>
+  <div id="scoreDisplay">🌍 Gissa Flaggan Rätt: 0 av 0</div>
   <img id="flag" src="" alt="Flagga">
   <div class="input-row">
   <input type="text" id="guess" placeholder="Landets namn" list="countryList">
@@ -77,11 +77,9 @@
     </datalist>
   <button onclick="checkAnswer()">Gissa</button>
   </div>
-<div id="feedback"></div>
-  <div id="scoreDisplay">Rätt: 0 av 0</div>
 
   <div class="container">
-   
+     <div id="feedback"></div>
      <!-- Knapp för att dela resultatet -->
     <button onclick="shareResult()">Dela resultatet</button>
   </div>
@@ -316,6 +314,7 @@ function randomFlag() {
   // Här inaktiverar vi endast gissningsknappen (första knappen),
   // så att dela-knappen alltid är tillgänglig
   document.querySelectorAll("button")[0].disabled = false;
+  document.getElementById("guess").focus();
 }
 
 function checkAnswer() {
@@ -340,7 +339,7 @@ total++;
   // Uppdatera poängdisplayen
   //document.getElementById("scoreDisplay").textContent = `Rätt: ${score} av ${total}`;
 document.getElementById("scoreDisplay").textContent = 
-    `Rätt: ${score} av ${total} - Max streak: ${maxStreak}`;
+    `🌍 Gissa Flaggan, rätt: ${score} av ${total} - Max streak: ${maxStreak}`;
 
   // Inaktivera inmatningsfältet och gissningsknappen
   document.getElementById("guess").disabled = true;
@@ -348,6 +347,7 @@ document.getElementById("scoreDisplay").textContent =
   
   // Efter några sekunder visas en ny flagga
   setTimeout(randomFlag, 4000);
+  document.getElementById("guess").focus();
 }
   
 function capitalize(str) {
