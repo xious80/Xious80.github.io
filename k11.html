@@ -17,7 +17,7 @@
     }
     .button {
       margin: 5px;
-      padding: 10px 10px;
+      padding: 10px 10px; /* 10px padding både vertikalt och horisontellt */
       background: #0078D7;
       color: white;
       border: none;
@@ -44,7 +44,7 @@
       width: 100%;
       aspect-ratio: 1;
     }
-    /* Cellernas fontstorlek är fastställd så att bokstaven fyller cellen */
+    /* Celler med fast fontstorlek så att bokstaven fyller cellen bättre */
     .cell {
       width: 100%;
       height: 100%;
@@ -66,7 +66,7 @@
       color: #555;
       pointer-events: none;
     }
-    /* Tjockare kanter vid början/slut av ord */
+    /* Tjockare kanter för början/slut av ord */
     .start-across .cell {
       border-left: 2px solid black;
     }
@@ -86,7 +86,7 @@
       margin-left: auto;
       margin-right: auto;
     }
-    /* Log-rutan – avstängd per default */
+    /* Log-rutan – dold per default */
     #log {
       margin-top: 20px;
       text-align: left;
@@ -99,7 +99,7 @@
       font-size: 12px;
       display: none;
     }
-    /* Korrigerat svar visas centrerat längst ned i cellen */
+    /* Korrekt svar visas centrerat längst ned i cellen */
     .correct-letter {
       position: absolute;
       bottom: 0;
@@ -124,19 +124,28 @@
   <div class="clues" id="clues"></div>
   <div class="score" id="score"></div>
   
-  <!-- Log-rutan är dold per default -->
+  <!-- Log-rutan, dold per default -->
   <div id="log"></div>
   
   <script>
     // Global växlingsvariabel: toggleMode % 2 == 0 → standardläge, annars alternativt läge.
     let toggleMode = 0;
-    // Global lista för att komma ihåg de senaste 10 använda vertikala orden (för alternativt läge)
+    // Global lista för att hålla koll på de senaste 10 använda vertikala orden i alternativt läge.
     let usedVerticalWords = [];
     
-    // Loggfunktion – skriver ut meddelanden till konsolen och i log-rutan (som är dold per default)
+    // Enkel Fisher-Yates shuffle för att slumpa en array.
+    function shuffleArray(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+    
+    // Loggningsfunktion – skriver ut meddelanden i konsolen och i log-rutan (dold per default).
     function logMessage(message) {
       console.log(message);
-      // Om du vill visa loggen, kan du avkommentera raden nedan:
+      // Om du vill visa loggen, avkommentera nedan:
       // document.getElementById('log').style.display = 'block';
       const logDiv = document.getElementById('log');
       const p = document.createElement('p');
@@ -144,11 +153,12 @@
       logDiv.appendChild(p);
     }
     
-    // Global variabel för aktivt ord – det ord vars startcell du klickar på.
+    // Global variabel för aktivt ord (det ord vars startcell du klickar på).
     let activeWord = null;
-    // WordBank laddas från filen "wordbank.json". Se till att denna fil ligger i samma mapp och att du kör via en webbserver.
+    // WordBank laddas från filen "wordbank.json"
     let wordBank = [];
     
+    // Hämta wordbank.json (observera att detta måste köras via en webbserver).
     fetch('wordbank.json')
       .then(response => {
         if (!response.ok) throw new Error("Status " + response.status);
@@ -188,13 +198,15 @@
       placedWords.push({ word, clue, row: r, col: c, dir, positions });
     }
     
-    // Standardläge: placerar många korsande ord i ett 10×10-rutnät.
+    // Standardläge: generera ett 10×10 korsord med många korsande ord.
     function generateStandardMode() {
       const size = 10;
       let grid = Array.from({ length: size }, () => Array(size).fill(null));
       let placedWords = [];
-      let remaining = wordBank.slice().sort((a, b) => b.word.length - a.word.length);
+      // Använd en randomiserad kopia av wordBank för variation.
+      let remaining = shuffleArray(wordBank.slice());
       
+      // Placera det första ordet centrerat horisontellt.
       if (remaining.length > 0) {
         const first = remaining.shift();
         let r = Math.floor(size / 2);
@@ -203,6 +215,7 @@
         logMessage("Första ord placerat: " + first.word + " på rad " + (r + 1) + ", kolumn " + (c + 1));
       }
       
+      // Försök placera övriga ord baserat på gemensamma bokstäver.
       let progress = true;
       while (progress && remaining.length > 0) {
         progress = false;
@@ -244,54 +257,55 @@
       return { grid, placedWords, size };
     }
     
-    // Alternativt läge: placera först ett långt lodrätt ord och sedan för varje rad i det ordet,
-    // försök lägga in ett horisontellt ord som sträcker sig så långt det går.
+    // Alternativt läge: generera först ett långt lodrätt ord (prioriterat efter längd)
+    // och för varje rad där det ordet finns, försök placera ett horisontellt ord som sträcker sig 
+    // så långt som möjligt längs med det lodräta.
     function generateAlternateMode() {
       const size = 10;
       let grid = Array.from({ length: size }, () => Array(size).fill(null));
       let placedWords = [];
-      // Använd en lokal kopia av wordBank
       let remaining = wordBank.slice();
       
-      // Välj en vertikal kandidat: ord med längd <= size och som inte ingår i listan med nyligen använda.
+      // Välj en vertikal kandidat: ord med längd <= size, som inte nyligen använts.
       let verticalCandidates = remaining.filter(x => x.word.length <= size && !usedVerticalWords.includes(x.word));
       if (verticalCandidates.length === 0) {
-        // Om alla har använts nyligen, återställ listan.
         usedVerticalWords = [];
         verticalCandidates = remaining.filter(x => x.word.length <= size);
       }
-      // Välj en kandidat slumpmässigt.
-      let verticalWord = verticalCandidates[Math.floor(Math.random() * verticalCandidates.length)];
-      // Lägg till den valda ordet i listan med använda (och håll högst 10 element).
+      
+      // Sortera kandidaterna i fallande ordning så att det längsta ordet prioriteras.
+      verticalCandidates.sort((a, b) => b.word.length - a.word.length);
+      let verticalWord = verticalCandidates[0];
+      // Ta bort vald kandidat från remaining.
+      remaining = remaining.filter(x => x.word !== verticalWord.word);
       usedVerticalWords.push(verticalWord.word);
       if (usedVerticalWords.length > 10) {
         usedVerticalWords.shift();
       }
-      // Ta bort den använda kandidaten från remaining.
-      remaining = remaining.filter(x => x.word !== verticalWord.word);
       
-      // Placera det lodräta ordet i mitten: kolumn = Math.floor(size/2), start från rad 0.
+      // Placera det lodräta ordet i mitten (kolumn = Math.floor(size / 2)), start från rad 0.
       let verticalCol = Math.floor(size / 2);
       let verticalRow = 0;
       placeWord(verticalWord.word, verticalWord.clue, verticalRow, verticalCol, "down", grid, placedWords);
       logMessage("Vertikalt ord placerat: " + verticalWord.word + " på kolumn " + (verticalCol + 1));
       
-      // För varje rad där det lodräta ordet finns, försök lägga in ett horisontellt ord som sträcker sig så långt det går.
+      // För varje rad i det lodräta ordet, försök placera ett horisontellt ord
       for (let r = verticalRow; r < verticalRow + verticalWord.word.length; r++) {
         let verticalChar = verticalWord.word[r - verticalRow];
-        // Hitta horisontella kandidater (ej samma ord som det lodräta) som innehåller bokstaven.
+        // Hitta horisontella kandidater (ej samma ord) som innehåller bokstaven.
         let horizontalCandidates = remaining.filter(x => x.word !== verticalWord.word && x.word.length <= size && x.word.includes(verticalChar));
         if (horizontalCandidates.length === 0) {
           logMessage("Ingen horisontell kandidat hittades för bokstaven " + verticalChar + " vid rad " + (r + 1));
           continue;
         }
+        // Sortera kandidaterna så att de längsta först prioriteras.
         horizontalCandidates.sort((a, b) => b.word.length - a.word.length);
         let placed = false;
         for (let candidate of horizontalCandidates) {
           let L = candidate.word.length;
           for (let i = 0; i < L; i++) {
             if (candidate.word[i] === verticalChar) {
-              // Placera ordet så att candidate[i] hamnar på verticalCol.
+              // Placera ordet så candidate[i] hamnar på verticalCol.
               let horizontalCol = verticalCol - i;
               if (horizontalCol >= 0 && (horizontalCol + L) <= size) {
                 if (canPlace(candidate.word, r, horizontalCol, "across", grid, size)) {
@@ -311,7 +325,7 @@
       return { grid, placedWords, size };
     }
     
-    // Renderingsfunktion: bygger ut gridet, celler, numrering och ledtrådarna.
+    // Renderingsfunktion: bygger upp gridet, cellerna och ledtrådarna.
     function renderGrid(gridData) {
       const gridDiv = document.getElementById('grid');
       const cluesDiv = document.getElementById('clues');
@@ -330,7 +344,7 @@
         obj.number = numbering[r][c];
       }
       
-      // Skapa matriser för vilka celler som tillhör "across" respektive "down".
+      // Skapa matriser för vilka celler som ingår i "across" respektive "down" ord.
       let acrossMatrix = Array.from({ length: size }, () => Array(size).fill(false));
       let downMatrix = Array.from({ length: size }, () => Array(size).fill(false));
       for (let obj of placedWords) {
@@ -355,6 +369,7 @@
         }
       }
       
+      // Rendera cellerna
       for (let r = 0; r < size; r++) {
         for (let c = 0; c < size; c++) {
           const wrapper = document.createElement('div');
@@ -428,7 +443,22 @@
       logMessage("Placerade ord: " + placedWords.length);
     }
     
-    // Kontrollera svaren – markerar korrekta/fel och visar korrekt svar centrerat längst ned.
+    // Huvudfunktion: Växla mellan standardläge och alternativt läge och rendera korsordet.
+    function generateCrossword() {
+      document.getElementById('log').innerHTML = ''; // Töm loggen
+      let gridData;
+      if (toggleMode % 2 === 0) {
+        logMessage("Standardläge genereras:");
+        gridData = generateStandardMode();
+      } else {
+        logMessage("Alternativt läge genereras: Lodrätt ord med horisontella ord längs med hela det lodräta.");
+        gridData = generateAlternateMode();
+      }
+      renderGrid(gridData);
+      toggleMode++;
+    }
+    
+    // Kontrollera användarens svar – markerar rätt och visar korrekt svar centrerat längst ned.
     function checkAnswers() {
       const inputs = document.querySelectorAll('.cell');
       let correct = 0, total = 0;
@@ -453,23 +483,9 @@
       document.getElementById('score').innerHTML = `<h3>Du fick ${correct} av ${total} bokstäver rätt.</h3>`;
     }
     
-    // Huvudfunktionen: växla mellan standardläge och alternativt läge.
-    function generateCrossword() {
-      document.getElementById('log').innerHTML = ''; // Töm loggen
-      let gridData;
-      if (toggleMode % 2 === 0) {
-        logMessage("Standardläge genereras:");
-        gridData = generateStandardMode();
-      } else {
-        logMessage("Alternativt läge genereras: Lodrätt ord med horisontella ord längs med hela det lodräta.");
-        gridData = generateAlternateMode();
-      }
-      renderGrid(gridData);
-      toggleMode++;
-    }
-    
+    // Kör korsordsgeneratorn när sidan laddas (wordbank hämtas via fetch).
     window.onload = function() {
-      // När wordBank lästs in via fetch, kallas generateCrossword().
+      // När wordBank har laddats kommer generateCrossword att kallas.
     };
   </script>
 </body>
