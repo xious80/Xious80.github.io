@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <title>Dynamiskt 10x10 Korsord med Extern Wordbank</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #fafafa;
+      text-align: center;
+      margin: 0;
+      padding: 20px;
+    }
+    /* Knapparna i en container högst upp */
+    #buttons {
+      margin-bottom: 10px;
+    }
+    .button {
+      margin: 5px;
+      padding: 10px 20px;
+      background: #0078D7;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    /* Tipsrutan visas precis under knapparna */
+    #selectedClue {
+      margin-bottom: 10px;
+      font-size: 16px;
+      font-weight: bold;
+    }
+    /* Gridet fyller hela sidans bredd med 10 kolumner jämnt fördelade */
+    .grid {
+      display: grid;
+      grid-gap: 2px;
+      width: 100%;
+      grid-template-columns: repeat(10, 1fr);
+    }
+    /* Varje cell-wrapper håller en kvadratisk form med en aspect-ratio */
+    .cell-wrapper {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1;
+    }
+    .cell {
+      width: 100%;
+      height: 100%;
+      font-size: calc(1vw + 10px);
+      text-transform: uppercase;
+      text-align: center;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+      background: #fff;
+    }
+    .cell[disabled] {
+      background: #eee;
+    }
+    .number {
+      position: absolute;
+      top: 2px;
+      left: 4px;
+      font-size: 10px;
+      color: #555;
+      pointer-events: none;
+    }
+    /* Tjockare kanter för början och slut av ordet */
+    .start-across .cell {
+      border-left: 2px solid black;
+    }
+    .end-across .cell {
+      border-right: 2px solid black;
+    }
+    .start-down .cell {
+      border-top: 2px solid black;
+    }
+    .end-down .cell {
+      border-bottom: 2px solid black;
+    }
+    .clues, .score {
+      margin-top: 20px;
+      text-align: left;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    /* Fel-svaren visas centrerat längst ned i cellen */
+    .correct-letter {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font-size: 12px;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+  <div id="buttons">
+    <button class="button" onclick="generateCrossword()">Nytt korsord</button>
+    <button class="button" onclick="checkAnswers()">Kontrollera svar</button>
+  </div>
+  
+  <!-- Tipsrutan visas precis under knapparna -->
+  <div id="selectedClue">Klicka på en ruta med siffra för att se ledtråden (och riktning)</div>
+  
+  <div class="grid" id="grid"></div>
+  <div class="clues" id="clues"></div>
+  <div class="score" id="score"></div>
+  
+  <script>
+    // Global variabel för aktivt ord – det ord vars startcell du klickar på
+    let activeWord = null;
+    // WordBank laddas enbart från en extern fil
+    let wordBank = [];
+
+    // Ladda wordbank från "wordbank.json"
+    fetch('wordbank.json')
+      .then(response => response.json())
+      .then(data => {
+        wordBank = data;
+        generateCrossword();
+      })
+      .catch(error => {
+        console.error("Fel vid inläsning av wordbank.json:", error);
+      });
+    
+    // Funktion för att generera korsordet
+    function generateCrossword() {
+      const gridDiv = document.getElementById('grid');
+      const cluesDiv = document.getElementById('clues');
+      const scoreDiv = document.getElementById('score');
+      const selectedClueDiv = document.getElementById('selectedClue');
+      gridDiv.innerHTML = '';
+      cluesDiv.innerHTML = '';
+      scoreDiv.innerHTML = '';
+      selectedClueDiv.innerHTML = "Klicka på en ruta med siffra för att se ledtråden (och riktning)";
+      activeWord = null;
+      
+      const size = 10;
+      // Initiera ett 10x10 rutnät med null
+      let grid = Array.from({ length: size }, () => Array(size).fill(null));
+      let placedWords = [];
+      
+      // Sortera wordBank efter ordlängd, längsta först
+      let remaining = wordBank.slice().sort((a, b) => b.word.length - a.word.length);
+      
+      // Hjälpfunktion: kontrollerar om ett ord får plats från (r,c) i riktning "across" eller "down"
+      function canPlace(word, r, c, dir) {
+        if (dir === "across") {
+          if (c + word.length > size) return false;
+        } else {
+          if (r + word.length > size) return false;
+        }
+        for (let i = 0; i < word.length; i++) {
+          let rr = (dir === "across") ? r : r + i;
+          let cc = (dir === "across") ? c + i : c;
+          if (grid[rr][cc] !== null && grid[rr][cc] !== word[i]) return false;
+        }
+        return true;
+      }
+      
+      // Placera ett ord i rutnätet; spara startposition och alla cellpositioner
+      function placeWord(word, clue, r, c, dir) {
+        let positions = [];
+        for (let i = 0; i < word.length; i++) {
+          let rr = (dir === "across") ? r : r + i;
+          let cc = (dir === "across") ? c + i : c;
+          grid[rr][cc] = word[i];
+          positions.push({ r: rr, c: cc });
+        }
+        placedWords.push({ word, clue, row: r, col: c, dir, positions });
+      }
+      
+      // Placera det första ordet – välj det längsta ordet och placera det centrerat horisontellt
+      if (remaining.length > 0) {
+        const first = remaining.shift();
+        let r = Math.floor(size / 2);
+        let c = Math.floor((size - first.word.length) / 2);
+        placeWord(first.word, first.clue, r, c, "across");
+      }
+      
+      // Försök placera resterande ord genom att leta efter gemensamma bokstäver med redan placerade ord
+      let progress = true;
+      while (progress && remaining.length > 0) {
+        progress = false;
+        for (let i = remaining.length - 1; i >= 0; i--) {
+          const candidate = remaining[i];
+          let placed = false;
+          for (let placedObj of placedWords) {
+            for (let i1 = 0; i1 < placedObj.word.length; i1++) {
+              const letter = placedObj.word[i1];
+              for (let j = 0; j < candidate.word.length; j++) {
+                if (candidate.word[j] === letter) {
+                  // Om befintligt ord är "across" placera candidate "down" och vice versa
+                  const newDir = (placedObj.dir === "across") ? "down" : "across";
+                  let newRow, newCol;
+                  if (newDir === "down") {
+                    newRow = placedObj.row - j;
+                    newCol = placedObj.col + i1;
+                  } else {
+                    newRow = placedObj.row + i1;
+                    newCol = placedObj.col - j;
+                  }
+                  if (newRow < 0 || newCol < 0) continue;
+                  if (canPlace(candidate.word, newRow, newCol, newDir)) {
+                    placeWord(candidate.word, candidate.clue, newRow, newCol, newDir);
+                    remaining.splice(i, 1);
+                    placed = true;
+                    progress = true;
+                    break;
+                  }
+                }
+              }
+              if (placed) break;
+            }
+            if (placed) break;
+          }
+        }
+      }
+      
+      // Tilldela numrering: varje ords startcell (om ej redan numrerad) får ett nummer
+      let numbering = Array.from({ length: size }, () => Array(size).fill(''));
+      let num = 1;
+      for (let obj of placedWords) {
+        const r = obj.row, c = obj.col;
+        if (!numbering[r][c]) {
+          numbering[r][c] = num++;
+        }
+        obj.number = numbering[r][c];
+      }
+      
+      // Skapa matriser för att avgöra vilka celler som ingår i ett "across" respektive "down" ord
+      let acrossMatrix = Array.from({ length: size }, () => Array(size).fill(false));
+      let downMatrix = Array.from({ length: size }, () => Array(size).fill(false));
+      for (let obj of placedWords) {
+        if (obj.dir === "across") {
+          for (let pos of obj.positions) {
+            acrossMatrix[pos.r][pos.c] = true;
+          }
+        } else {
+          for (let pos of obj.positions) {
+            downMatrix[pos.r][pos.c] = true;
+          }
+        }
+      }
+      
+      // Rendera gridet
+      gridDiv.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
+      
+      // Skapa en "matrix" från grid (spara bokstav per cell)
+      let matrix = Array.from({ length: size }, () => Array(size).fill(null));
+      for (let r = 0; r < size; r++) {
+        for (let c = 0; c < size; c++) {
+          if (grid[r][c] !== null) {
+            matrix[r][c] = { letter: grid[r][c] };
+          }
+        }
+      }
+      
+      // Rendera celler
+      for (let r = 0; r < size; r++) {
+        for (let c = 0; c < size; c++) {
+          const wrapper = document.createElement('div');
+          wrapper.className = 'cell-wrapper';
+          // För vågrätt: lägg till "start-across" om cellen är första i raden eller vänster granne saknas
+          if (matrix[r][c] && (c === 0 || !acrossMatrix[r][c - 1])) {
+            wrapper.classList.add("start-across");
+          }
+          // Lägg till "end-across" om cellen är sista i ett vågrätt ord (ingen cell till höger)
+          if (matrix[r][c] && (c === size - 1 || !acrossMatrix[r][c + 1])) {
+            wrapper.classList.add("end-across");
+          }
+          // För lodrätt: lägg till "start-down" om cellen är översta eller cellen ovanför saknas i samma ord
+          if (matrix[r][c] && (r === 0 || !downMatrix[r - 1][c])) {
+            wrapper.classList.add("start-down");
+          }
+          // Lägg till "end-down" om cellen är sista i ett lodrätt ord (ingen cell nedanför)
+          if (matrix[r][c] && (r === size - 1 || !downMatrix[r + 1][c])) {
+            wrapper.classList.add("end-down");
+          }
+          
+          const input = document.createElement('input');
+          input.className = 'cell';
+          input.maxLength = 1;
+          input.dataset.pos = `${r}-${c}`;
+          
+          // Automatisk hoppning: när en bokstav skrivs i en cell, flytta fokus till nästa cell i det aktiva ordet
+          input.addEventListener("input", function() {
+            this.value = this.value.toUpperCase().substring(0, 1);
+            if (activeWord) {
+              let pos = this.dataset.pos;
+              let index = activeWord.positions.findIndex(p => `${p.r}-${p.c}` === pos);
+              if (index !== -1 && index < activeWord.positions.length - 1) {
+                let nextCoord = activeWord.positions[index + 1];
+                let nextInput = document.querySelector(`input[data-pos="${nextCoord.r}-${nextCoord.c}"]`);
+                if (nextInput) {
+                  nextInput.focus();
+                }
+              }
+            }
+          });
+          
+          if (!matrix[r][c]) {
+            input.disabled = true;
+          } else {
+            input.dataset.solution = matrix[r][c].letter;
+          }
+          
+          // Om cellen är en startcell – visa siffra och gör den klickbar för att visa ledtråd
+          if (numbering[r][c]) {
+            const label = document.createElement('div');
+            label.className = 'number';
+            label.textContent = numbering[r][c];
+            wrapper.appendChild(label);
+            wrapper.addEventListener("click", function() {
+              let pw = placedWords.find(w => w.row === r && w.col === c);
+              if (pw) {
+                activeWord = pw;
+                selectedClueDiv.innerText =
+                  pw.number + " " + (pw.dir === "across" ?
+                  "(vågrätt " + pw.word.length + ")" : "(lodrätt " + pw.word.length + ")") + ": " + pw.clue;
+              }
+            });
+          }
+          
+          wrapper.appendChild(input);
+          gridDiv.appendChild(wrapper);
+        }
+      }
+      
+      // Sortera de placerade orden efter nummer och rendera ledtrådar under gridet
+      placedWords.sort((a, b) => a.number - b.number);
+      cluesDiv.innerHTML = '<h2>Ledtrådar</h2>';
+      placedWords.forEach(wordObj => {
+        cluesDiv.innerHTML += `<p>${wordObj.number} ${wordObj.dir === "across" ?
+          "(vågrätt " + wordObj.word.length + ")" : "(lodrätt " + wordObj.word.length + ")"}: ${wordObj.clue}</p>`;
+      });
+      
+      console.log("Placerade ord:", placedWords);
+    }
+    
+    // Funktion för att kontrollera användarens svar – markerar korrekta svar och visar de rätta bokstäverna centrerat längst ned i cellen
+    function checkAnswers() {
+      const inputs = document.querySelectorAll('.cell');
+      let correct = 0;
+      let total = 0;
+      document.querySelectorAll('.correct-letter').forEach(e => e.remove());
+      inputs.forEach(input => {
+        if (!input.disabled && input.dataset.solution) {
+          total++;
+          const val = input.value.toUpperCase();
+          const solution = input.dataset.solution.toUpperCase();
+          if (val === solution) {
+            correct++;
+            input.style.backgroundColor = '#c6f6c6';
+          } else {
+            input.style.backgroundColor = '#f6c6c6';
+            const corr = document.createElement('div');
+            corr.className = 'correct-letter';
+            corr.textContent = solution;
+            input.parentElement.appendChild(corr);
+          }
+        }
+      });
+      document.getElementById('score').innerHTML = `<h3>Du fick ${correct} av ${total} bokstäver rätt.</h3>`;
+    }
+  </script>
+</body>
+</html>
