@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Division</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+
+        #problem {
+            font-size: 32px;
+            margin-bottom: 20px;
+        }
+
+        #alternativ {
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            font-size: 20px;
+            padding: 10px 20px;
+            border: none;
+            background-color: #f0f0f0;
+            cursor: pointer;
+        }
+
+        #feedback {
+            font-size: 18px;
+            margin-top: 20px;
+        }
+
+        #nästa {
+            font-size: 18px;
+            padding: 10px 20px;
+            border: none;
+            background-color: #f0f0f0;
+            cursor: pointer;
+            display: none;
+        }
+        .correct {
+            background-color: #2ecc71; /* Grön färg för rätt svar */
+        }
+
+        .incorrect {
+            background-color: #e74c3c; /* Röd färg för fel svar */
+        }
+    </style>
+</head>
+<body>
+    <form>
+        <input type="radio" id="latt" name="svårighetsgrad" value="lätt" checked>
+        <label for="latt">Lätt</label>
+
+        <input type="radio" id="medel" name="svårighetsgrad" value="medel">
+        <label for="medel">Medel</label>
+
+        <input type="radio" id="svår" name="svårighetsgrad" value="svår">
+        <label for="svår">Svår</label>
+    </form>
+    <br>
+    <form>
+        <input type="radio" id="division" name="räknesätt" value="division" checked>
+        <label for="latt"> / </label>
+
+        <input type="radio" id="multiplikation" name="räknesätt" value="multiplikation">
+        <label for="medel"> * </label>
+
+        <input type="radio" id="addition" name="räknesätt" value="addition">
+        <label for="medel"> + </label>
+
+        <input type="radio" id="subtraktion" name="räknesätt" value="subtraktion">
+        <label for="medel"> - </label>
+    </form>
+    <h1></h1>
+    <div id="problem"></div>
+    <div id="alternativ"></div>
+    <div id="feedback"></div>
+    <button id="nästa" onclick="visaProblem(svårighetsgrad)">Nästa</button>
+
+    <script>
+        let rättSvar;
+        let svårighetsgrad = "lätt";
+        let räknesätt = "division";
+
+        // Hämta alla radio-knappar med namnet "svårighetsgrad" och "räknesätt"
+        const radioSvårighetsgrad = document.getElementsByName("svårighetsgrad");
+        const radioRäknesätt = document.getElementsByName("räknesätt");
+
+        // Lägg till en händelselyssnare för varje radio-knapp
+        radioSvårighetsgrad.forEach(button => {
+            button.addEventListener("change", function() {
+                // Om användaren väljer en svårighetsgrad, sätt värdet till variabeln svårighetsgrad
+                if (this.checked) {
+                    svårighetsgrad = this.value;
+                    //console.log("Vald svårighetsgrad:", svårighetsgrad);
+                    // Gör något med svårighetsgraden här (t.ex. visa problemet)
+                    visaProblem(svårighetsgrad);
+                }
+            });
+        });
+        radioRäknesätt.forEach(button => {
+            button.addEventListener("change", function() {
+                // Om användaren väljer ett räknesätt, sätt värdet till variabeln räknesätt
+                if (this.checked) {
+                    räknesätt = this.value;
+                    //console.log("Valt räknesätt:", räknesätt);
+                    // Gör något med svårighetsgraden här (t.ex. visa problemet)
+                    visaProblem(svårighetsgrad);
+                }
+            });
+        });
+
+        // Generera ett slumpmässigt heltalsbråk
+        function genereraHeltalsbrak(svårighetsgrad) {
+            const maxTäljare = svårighetsgrad === "lätt" ? 10 : (räknesätt === "multiplikation" ? (svårighetsgrad === "medel" ? 15 : 50) : (svårighetsgrad === "medel" ? 50 : 100));
+            const maxNämnare = svårighetsgrad === "lätt" ? 10 : (räknesätt === "multiplikation" ? (svårighetsgrad === "medel" ? 15 : 50) : (svårighetsgrad === "medel" ? 50 : 100));
+            let täljare, nämnare;
+
+            do {
+                täljare = Math.floor(Math.random() * maxTäljare) + 1;
+                nämnare = Math.floor(Math.random() * maxNämnare) + 1;
+                if (räknesätt == "division") {
+                    rättSvar = täljare / nämnare;
+                }
+                else if (räknesätt == "addition") {
+                    rättSvar = täljare + nämnare;
+                }
+                else if (räknesätt == "subtraktion") {
+                    rättSvar = täljare - nämnare;
+                }
+                else {
+                    rättSvar = täljare * nämnare;
+                }
+            } while (rättSvar % 1 !== 0 || rättSvar === 1); // Fortsätt tills rättSvar är ett heltal och inte 1 och inte <= 0
+
+            return { täljare, nämnare };
+        }
+
+        // Skapa svarsalternativ nära rättSvar
+        function skapaSvarsalternativ() {
+            const alternativ = [];
+            const avvikelse = 1; // Justera avvikelsen för att få närliggande svar
+            let testanr = 25;
+            let rättSvarMinus = rättSvar;
+
+            while (alternativ.length < 4) {
+                rättSvarMinus = rättSvarMinus - 1;
+                if ((räknesätt === "subtraktion" ? (rättSvarMinus != rättSvar) : (rättSvarMinus > 0)) && !alternativ.includes(rättSvarMinus)) {
+                    alternativ.push(rättSvarMinus);
+                }
+                else {
+                    const slumpSvar = Math.floor(Math.random() * 10) + 1;
+                    if (slumpSvar !== rättSvar && !alternativ.includes(slumpSvar)) {
+                        // Kontrollera om slumpSvar är nära rättSvar
+                        testanr = testanr - 1;
+                        if ((Math.abs(slumpSvar - rättSvar) <= avvikelse) && (testanr > 0)) {
+                            alternativ.push(slumpSvar);
+                        }
+                        else if (testanr < 0) {
+                            alternativ.push(slumpSvar);
+                        }
+                    }
+                }
+            }
+            alternativ.push(rättSvar);
+            return alternativ.sort(() => Math.random() - 0.5);
+        }
+
+        // Visa problem och svarsalternativ
+        function visaProblem(svårighetsgrad) {
+            const { täljare, nämnare } = genereraHeltalsbrak(svårighetsgrad);
+            const svarsalternativ = skapaSvarsalternativ();
+
+            if (räknesätt == "division") {
+                document.getElementById("problem").textContent = `${täljare} / ${nämnare}`;
+            }
+            else if (räknesätt == "addition") {
+                document.getElementById("problem").textContent = `${täljare} + ${nämnare}`;
+            }
+            else if (räknesätt == "subtraktion") {
+                document.getElementById("problem").textContent = `${täljare} - ${nämnare}`;
+            }
+            else {
+                document.getElementById("problem").textContent = `${täljare} * ${nämnare}`;
+            }
+            document.getElementById("alternativ").innerHTML = svarsalternativ.map((svar, index) => `
+                <button onclick="kontrolleraSvar(${svar}, ${rättSvar})">${svar}</button>
+            `).join("");
+            document.getElementById("feedback").textContent = "";
+            document.getElementById("nästa").style.display = "none";
+        }
+
+        // Uppdaterad kontrolleraSvar-funktion
+        function kontrolleraSvar(valtSvar, rättSvar) {
+            const feedbackElement = document.getElementById("feedback");
+            const nästaKnapp = document.getElementById("nästa");
+
+            if (valtSvar === rättSvar) {
+                feedbackElement.textContent = "Rätt svar! Bra jobbat!";
+                //feedbackElement.classList.add("correct"); // Lägg till klassen för rätt svar
+                nästaKnapp.style.display = "block";
+            } else {
+                feedbackElement.textContent = `Fel svar. Det rätta svaret är ${rättSvar}. Försök igen!`;
+                //feedbackElement.classList.add("incorrect"); // Lägg till klassen för fel svar
+            }
+
+            // Ändra färgen på knapparna
+            const knappar = document.querySelectorAll("#alternativ button");
+            knappar.forEach(knapp => {
+                if (Number(knapp.textContent) === rättSvar) {
+                    knapp.classList.add("correct");
+                } else {
+                    knapp.classList.add("incorrect");
+                }
+            });
+        }
+
+
+        // Visa första problemet när sidan laddas
+        //const svårighetsgrad = "medel"; // Ändra svårighetsgrad här (lätt, medel eller svår)
+        visaProblem(svårighetsgrad);
+    </script>
+</body>
+</html>
