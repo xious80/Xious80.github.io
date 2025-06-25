@@ -429,8 +429,8 @@
                 activeWord = pw;
                 document.getElementById('selectedClue').innerText =
                   pw.number + " " + (pw.dir === "across" 
-                    ? "(vågrätt " + pw.word.length + ")" 
-                    : "(lodrätt " + pw.word.length + ")") + ": " + pw.clue;
+                    ? "(→ " + pw.word.length + ")" 
+                    : "(↓ " + pw.word.length + ")") + ": " + pw.clue;
               }
             });
           }
@@ -444,7 +444,7 @@
       cluesDiv.innerHTML = '<h2>Ledtrådar</h2>';
       placedWords.forEach(wordObj => {
         cluesDiv.innerHTML += `<p>${wordObj.number} ${wordObj.dir === "across" ?
-          "(vågrätt " + wordObj.word.length + ")" : "(lodrätt " + wordObj.word.length + ")"}: ${wordObj.clue}</p>`;
+          "(→ " + wordObj.word.length + ")" : "(↓ " + wordObj.word.length + ")"}: ${wordObj.clue}</p>`;
       });
       
       logMessage("Placerade ord: " + placedWords.length);
