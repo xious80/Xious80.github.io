@@ -392,6 +392,9 @@
           input.maxLength = 1;
           input.dataset.pos = `${r}-${c}`;
           input.addEventListener("input", function() {
+            input.addEventListener("focus", function() {
+              this.select();
+            });
             this.value = this.value.toUpperCase().substring(0, 1);
             if (activeWord) {
               let pos = this.dataset.pos;
