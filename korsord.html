@@ -109,6 +109,12 @@
       font-size: 1.5rem;
       color: #555;
     }
+    .border-right {
+      border-right: 3px solid black;
+    }
+    .border-bottom {
+      border-bottom: 3px solid black;
+    }
   </style>
 </head>
 <body>
@@ -390,7 +396,26 @@
           if (matrix[r][c] && (r === size - 1 || !downMatrix[r + 1][c])) {
             wrapper.classList.add("end-down");
           }
-          
+          // Extra logik: fet kant mellan två olika ord bredvid varandra
+          const current = grid[r][c];
+          const right = grid[r]?.[c + 1];
+          const down = grid[r + 1]?.[c];
+
+          if (acrossMatrix[r][c] && right && acrossMatrix[r][c + 1]) {
+            const currentAcross = placedWords.find(w => w.dir === "across" && w.positions.some(p => p.r === r && p.c === c));
+            const rightAcross = placedWords.find(w => w.dir === "across" && w.positions.some(p => p.r === r && p.c === c + 1));
+            if (currentAcross?.word !== rightAcross?.word) {
+              wrapper.classList.add("end-across");
+            }
+          }
+
+          if (downMatrix[r][c] && down && downMatrix[r + 1][c]) {
+            const currentDown = placedWords.find(w => w.dir === "down" && w.positions.some(p => p.r === r && p.c === c));
+            const downDown = placedWords.find(w => w.dir === "down" && w.positions.some(p => p.r === r + 1 && p.c === c));
+            if (currentDown?.word !== downDown?.word) {
+              wrapper.classList.add("end-down");
+            }
+          }
           const input = document.createElement('input');
           input.className = 'cell';
           input.maxLength = 1;
