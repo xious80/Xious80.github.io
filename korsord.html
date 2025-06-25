@@ -273,9 +273,13 @@
         verticalCandidates = remaining.filter(x => x.word.length <= size);
       }
       
-      // Sortera kandidaterna i fallande ordning så att det längsta ordet prioriteras.
+      // Blanda orden först
+      verticalCandidates = shuffleArray(verticalCandidates);
+      // Välj de tio längsta
       verticalCandidates.sort((a, b) => b.word.length - a.word.length);
-      let verticalWord = verticalCandidates[0];
+      let topTen = verticalCandidates.slice(0, 10);
+      // Slumpa ett vertikalt ord bland dessa
+      let verticalWord = topTen[Math.floor(Math.random() * topTen.length)];
       // Ta bort vald kandidat från remaining.
       remaining = remaining.filter(x => x.word !== verticalWord.word);
       usedVerticalWords.push(verticalWord.word);
