@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8"/>
+  <title>DEBUG på sidan</title>
+  <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
+  <style>
+    body { margin: 0; font-family: monospace; }
+    #log {
+      white-space: pre-wrap;
+      background: #111;
+      color: #eee;
+      padding: 16px;
+      height: 100vh;
+      overflow-y: auto;
+    }
+    svg { display: none; }
+  </style>
+</head>
+<body>
+  <div id="log">🚀 Startar debug…\n</div>
+
+  <script>
+    function pageLog(msg) {
+      const logEl = document.getElementById("log");
+      logEl.textContent += msg + "\\n";
+    }
+    pageLog("Kontrollerar D3 och topojson…");
+    pageLog("d3 typeof: " + typeof d3 + " (expect object)");
+    pageLog("topojson typeof: " + typeof topojson + " (expect object)");
+
+    const topoURL  = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
+    const codesURL = "https://flagcdn.com/en/codes.json";
+
+    pageLog("Laddar GeoJSON från " + topoURL);
+    pageLog("Laddar codes.json från " + codesURL);
+
+    Promise.all([
+      d3.json(topoURL),
+      d3.json(codesURL)
+    ]).then(([topo, codes]) => {
+      pageLog("✔️ TopoJSON inläst – objects: " + Object.keys(topo.objects).join(", "));
+      pageLog("✔️ Codes inlästa – antal: " + Object.keys(codes).length);
+
+      const features = topojson.feature(topo, topo.objects.countries).features;
+      pageLog("→ Antal land-features: " + features.length);
+
+      pageLog("Första 5 land-namn:");
+      features.slice(0,5).forEach((f,i) => {
+        pageLog("  " + (i+1) + ": " + f.properties.name);
+      });
+
+      // Testa flaggkod
+      const codeEntries = Object.entries(codes);
+      if (codeEntries.length > 0) {
+        const [iso2, name] = codeEntries[0];
+        pageLog("Exempel flaggkod: " + name + " → " + iso2);
+        pageLog("Probar hämta flaggbild: https://flagcdn.com/w80/" + iso2 + ".png");
+      } else {
+        pageLog("🚫 Inga codes-länkar funna!");
+      }
+
+      pageLog("\\nOm du ser alla ovanstående rader utan 404/CORS-fel så funkar dataladdningen.");
+    })
+    .catch(err => {
+      pageLog("❌ FEL vid inläsning: " + err);
+    });
+  </script>
+</body>
+</html>
