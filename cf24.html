@@ -40,22 +40,23 @@
 
     /* kolumn med flagga, UI, korrekt namn */
     .flag-column {
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      width:160px;  /* samma som flaggan */
-      gap:6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 25vw;          /* tar upp 25% av bredden */
+    max-width: 200px;     /* valfri max‐bredd för stora skärmar */
+    gap: 6px;
     }
 
     /* UI under flaggan */
     #ui {
-      width:160px;
+      width:100%;
       background:rgba(255,255,255,0.9);
       padding:0px 0px;
       border-radius:4px;
     }
     #guessInput {
-      width:156px;
+      width:100%;
       padding:0px;
       font:12px sans-serif;
     }
@@ -68,7 +69,8 @@
 
     /* mini-flagga */
     #miniFlag {
-      width:160px; height:120px;
+      width: 100%;          /* istället för 160px */
+      aspect-ratio: 4/3;    /* bevara proportion */
       border:1px solid #888;
       cursor:pointer;
       transition:box-shadow .3s;
