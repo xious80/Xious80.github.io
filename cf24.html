@@ -2,7 +2,6 @@
 <html lang="sv">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Guess the country</title>
 
   <!-- D3+TopoJSON -->
@@ -55,7 +54,7 @@
     #guessInput {
       width:100%;
       padding:6px;
-      font:14px sans-serif;
+      font:12px sans-serif;
       /* slå av stavningsförslag */
       autocomplete: off;
       autocorrect: off;
@@ -65,7 +64,7 @@
     }
     #score {
       width:100%; margin-top:6px;
-      font:14px sans-serif; text-align:center;
+      font:12px sans-serif; text-align:center;
     }
 
     /* ------------------------------------------
@@ -87,7 +86,7 @@
     ------------------------------------------- */
     #correctName {
       width:100%; text-align:center;
-      font:14px sans-serif; color:crimson;
+      font:12px sans-serif; color:crimson;
       overflow:hidden; white-space:nowrap;
       text-overflow:ellipsis;
     }
@@ -120,7 +119,7 @@
         max-width: 200px;
       }
       #ui, #correctName {
-        font-size: 1.1em;
+        font-size: 1.0em;
       }
     }
   </style>
@@ -292,7 +291,7 @@
     const t = [ W/2 - s*cx,
                 H/4 - s*cy ]; // ändrat till H/4 för Y
 
-    svg.transition().duration(4000)
+    svg.transition().duration(6000)
       .call(zoom.transform,
         d3.zoomIdentity.translate(t[0],t[1]).scale(s)
       );
