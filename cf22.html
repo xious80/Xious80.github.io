@@ -2,6 +2,7 @@
 <html lang="sv">
 <head>
   <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>Guess the country</title>
 
   <!-- UMD‐byggen -->
@@ -122,10 +123,18 @@
     .attr("preserveAspectRatio","xMidYMid slice")
     .attr("crossorigin","anonymous");
 
+  const MIN_Z = 1;
+  const MAX_Z = 8;
   const zoom = d3.zoom()
-    .scaleExtent([1,8])
-    .on("zoom", e => mapG.attr("transform", e.transform));
+    // filtrera bort events som gömmer sig i .quiz-container
+    .filter(event => {
+        // om någon del av UI‐kontainern fick eventet → returnera false
+        return !event.target.closest('.quiz-container');
+    })
+    .scaleExtent([MIN_Z,MAX_Z])
+    .on("zoom", e => mapG.attr("transform", e.transform));  
   svg.call(zoom);
+
 
   let features, focus;
   let score=0, attempts=0, streak=0, bestStreak=0;
@@ -138,14 +147,14 @@
     const nameToISO = Object.entries(codes)
       .reduce((m,[iso,name]) => (m[name]=iso, m), {});
 
-    // --- Alias för namn som skiljer sig mot codes.json ---
+    // --- Alias för namn som skiljer sig mot codes.json topoURL Vs codesURL ---
     nameToISO["United States of America"]  = nameToISO["United States"];
     nameToISO["Dem. Rep. Congo"]           = nameToISO["Republic of the Congo"];
     nameToISO["S. Sudan"]                  = nameToISO["South Sudan"];
     nameToISO["Central African Rep."]      = nameToISO["Central African Republic"];
     nameToISO["Congo"]                     = nameToISO["DR Congo"];
     nameToISO["Eq. Guinea"]                = nameToISO["Equatorial Guinea"];
-    nameToISO["Côte d'Ivoire"]             = nameToISO["Côte d’Ivoire (Ivory Coast)"];
+    nameToISO["Côte d'Ivoire"]             = nameToISO["Côte d'Ivoire (Ivory Coast)"];
     nameToISO["W. Sahara"]                 = nameToISO["Western Sahara"];
     nameToISO["Bosnia and Herz."]          = nameToISO["Bosnia and Herzegovina"];
     nameToISO["Macedonia"]                 = nameToISO["North Macedonia"];
@@ -224,7 +233,9 @@
     const dx = b[1][0] - b[0][0], dy = b[1][1] - b[0][1];
     const cx = (b[0][0] + b[1][0]) / 2, cy = (b[0][1] + b[1][1]) / 2;
     const maxS = Math.min(W/dx, H/dy) * 0.8;
-    const s    = maxS * 0.5;
+    let s    = maxS * 0.5;
+    // ** CLAMPA så vi aldrig överskrider MAX_Z **
+    s = Math.max(MIN_Z, Math.min(s, MAX_Z));
     const t    = [W/2 - s*cx, H/2 - s*cy];
 
     svg.transition().duration(4000)
@@ -237,6 +248,19 @@
     flagEl.style.pointerEvents = "auto";
     inputEl.focus();
   }
+
+  window.addEventListener('wheel', e => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+    }
+  }, { passive: false });
+  
+  window.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) &&
+        ['+', '-', '=', '_', '0'].includes(e.key)) {
+      e.preventDefault();
+    }
+  });
   </script>
 </body>
 </html>
