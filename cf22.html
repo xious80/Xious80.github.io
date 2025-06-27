@@ -2,7 +2,7 @@
 <html lang="sv">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Guess the country</title>
 
   <!-- UMD‐byggen -->
@@ -68,14 +68,21 @@
     svg {
       position:absolute; top:0; left:0;
       width:100vw; height:100vh; cursor:move;
-    }
+      touch-action: none;      /* stoppar browser‐pinch/drag på svg */
+      overscroll-behavior: none;    }
     .country { fill:#e0e0e0; stroke:#aaa; }
     .focus   { fill:url(#flagPattern); stroke:#444; }
+    .quiz-container, 
+    .quiz-container * {
+     touch-action: auto;      /* säkerställer normala UI‐touchs */
+    }
   </style>
 </head>
 <body>
 
+  <!--
   <div id="debug">» Init…</div>
+  -->
 
   <div class="quiz-container">
     <div id="ui">
