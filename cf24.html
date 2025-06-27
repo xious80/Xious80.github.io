@@ -178,6 +178,7 @@
   svg.call(zoom);
 
   let features, focus;
+  const correctGuesses = new Set();
   let score=0, attempts=0, streak=0, bestStreak=0;
 
   const topoURL  = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
@@ -231,6 +232,8 @@
       const ok    = focus.nameEN.toLowerCase() === guess;
       attempts++;
       if (ok) {
+        // Spara undan så du inte ser landet igen
+        correctGuesses.add(focus.nameEN);
         score++; streak++; bestStreak = Math.max(bestStreak, streak);
         flash("correct");
         msgEl.textContent = "";
@@ -259,7 +262,14 @@
 
   function startNew(){
     msgEl.textContent = "";
-    focus = features[Math.floor(Math.random()*features.length)];
+    // Filtrera bort alla som redan är rättgissade
+    const pool = features.filter(f => !correctGuesses.has(f.nameEN));
+    if (pool.length === 0) {
+        // valfritt: visa “klar” eller återställ correctGuesses.clear()
+        alert("Grattis, du har klarat alla länder!");
+        correctGuesses.clear();
+    }
+    focus = pool[Math.floor(Math.random() * pool.length)];
 
     const url = `https://flagcdn.com/w320/${focus.iso2}.png`;
     patImg.attr("href", url);
