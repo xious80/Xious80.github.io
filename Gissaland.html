@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8" />
+  <title>Gissa landet – flaggkarta</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://unpkg.com/topojson-client@3"></script>
+  <style>
+    html, body {
+      margin: 0; padding: 0;
+      width: 100%; height: 100%;
+      overflow: hidden;
+      font-family: sans-serif;
+    }
+    svg {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      cursor: move;
+    }
+    .country { fill: #e0e0e0; stroke: #aaa; }
+    .focus   { fill: url(#flagPattern); stroke: #444; }
+    text     { font: 16px sans-serif; fill: #333; pointer-events: none; }
+
+    #ui {
+      position: absolute;
+      top: 20px; left: 20px;
+      z-index: 10;
+      background: rgba(255,255,255,0.85);
+      padding: 10px;
+      border-radius: 6px;
+    }
+
+    #guessInput {
+      width: 200px;
+      padding: 6px 10px;
+      font-size: 14px;
+    }
+
+    #score {
+      margin-top: 6px;
+      font-size: 14px;
+    }
+
+    #miniFlag {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      width: 160px;
+      height: 120px;
+      border: 1px solid #888;
+      cursor: pointer;
+      transition: box-shadow 0.3s ease;
+      z-index: 10;
+    }
+
+    #miniFlag.correct {
+      box-shadow: 0 0 0 4px limegreen;
+    }
+
+    #miniFlag.incorrect {
+      box-shadow: 0 0 0 4px crimson;
+    }
+  </style>
+</head>
+<body>
+  <div id="ui">
+    <input id="guessInput" list="guessList" placeholder="Gissa landet..." autocomplete="off" />
+    <datalist id="guessList"></datalist>
+    <div id="score">0/0 (Streak: 0)</div>
+  </div>
+
+  <img id="miniFlag" src="" alt="Miniatyrflagga" />
+  <svg></svg>
+
+  <script>
+  const svg = d3.select("svg");
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  const proj = d3.geoMercator().scale(150).translate([width / 2, height / 2]);
+  const path = d3.geoPath(proj);
+  const g = svg.append("g");
+
+  const defs = svg.append("defs");
+  const pattern = defs.append("pattern")
+    .attr("id", "flagPattern")
+    .attr("patternUnits", "objectBoundingBox")
+    .attr("patternContentUnits", "objectBoundingBox")
+    .attr("width", 1)
+    .attr("height", 1);
+  const patImg = pattern.append("image")
+    .attr("x", 0).attr("y", 0)
+    .attr("width", 1).attr("height", 1)
+    .attr("preserveAspectRatio", "xMidYMid slice")
+    .attr("crossorigin", "anonymous");
+
+  const zoom = d3.zoom()
+    .scaleExtent([1, 8])
+    .on("zoom", event => g.attr("transform", event.transform));
+  svg.call(zoom);
+
+  const inputEl = document.getElementById("guessInput");
+  const flagEl  = document.getElementById("miniFlag");
+  const listEl  = document.getElementById("guessList");
+  const scoreEl = document.getElementById("score");
+
+  let features, valid, focus;
+  let score = 0, attempts = 0, streak = 0, bestStreak = 0;
+
+  Promise.all([
+    d3.json("https://unpkg.com/world-atlas@2.0.2/countries-110m.json"),
+    d3.json("https://flagcdn.com/en/codes.json")
+  ]).then(([topo, codes]) => {
+    const nameToISO = Object.fromEntries(Object.entries(codes));
+    const dnSV = new Intl.DisplayNames(['sv'], {type: 'region'});
+    const dnEN = new Intl.DisplayNames(['en'], {type: 'region'});
+
+    features = topojson.feature(topo, topo.objects.countries).features
+      .filter(f => nameToISO[f.properties.name])
+      .map(f => {
+        const iso2 = nameToISO[f.properties.name];
+        return Object.assign(f, {
+          iso2,
+          nameEN: dnEN.of(iso2.toUpperCase()),
+          nameSV: dnSV.of(iso2.toUpperCase())
+        });
+      });
+
+    // Autocomplete-lista
+    const nameSet = new Set();
+    features.forEach(f => {
+      nameSet.add(f.nameSV);
+      nameSet.add(f.nameEN);
+    });
+    [...nameSet].sort().forEach(n => {
+      const opt = document.createElement("option");
+      opt.value = n;
+      listEl.appendChild(opt);
+    });
+
+    // Rita kartan
+    g.selectAll("path")
+      .data(features)
+      .join("path")
+        .attr("d", path)
+        .attr("class", "country");
+
+    flagEl.addEventListener("click", () => {
+      const guess = inputEl.value.trim().toLowerCase();
+      const match = [focus.nameEN, focus.nameSV].some(n => n.toLowerCase() === guess);
+      attempts++;
+      if (match) {
+        score++; streak++; bestStreak = Math.max(bestStreak, streak);
+        flash("correct");
+      } else {
+        streak = 0;
+        flash("incorrect");
+      }
+      updateScore();
+      inputEl.disabled = true;
+      flagEl.style.pointerEvents = "none";
+      setTimeout(newQuestion, 4000);
+    });
+
+    newQuestion();
+  });
+
+  function flash(cls) {
+    flagEl.classList.add(cls);
+    setTimeout(() => flagEl.classList.remove(cls), 500);
+  }
+
+  function updateScore() {
+    scoreEl.textContent = `${score}/${attempts} (Streak: ${bestStreak})`;
+  }
+
+  function newQuestion() {
+    focus = features[Math.floor(Math.random() * features.length)];
+    const flagURL = `https://flagcdn.com/w320/${focus.iso2}.png`;
+
+    patImg.attr("href", flagURL);
+    flagEl.src = flagURL;
+
+    g.selectAll("path")
+      .attr("class", d => d === focus ? "focus" : "country");
+
+    const [[x0, y0], [x1, y1]] = path.bounds(focus);
+    const dx = x1 - x0, dy = y1 - y0;
+    const x = (x0 + x1) / 2, y = (y0 + y1) / 2;
+    const maxScale = Math.min(width / dx, height / dy) * 0.8;
+    const initScale = maxScale * 0.5;
+    const translate = [width / 2 - initScale * x, height / 2 - initScale * y];
+
+    svg.transition()
+      .duration(4000)
+      .call(zoom.transform, d3.zoomIdentity.translate(translate[0], translate[1]).scale(initScale));
+
+    inputEl.value = "";
+    inputEl.disabled = false;
+    flagEl.style.pointerEvents = "auto";
+    inputEl.focus();
+  }
+  </script>
+</body>
+</html>
