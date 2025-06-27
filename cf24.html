@@ -101,6 +101,18 @@
     }
     .country { fill:#e0e0e0; stroke:#aaa; }
     .focus   { fill:url(#flagPattern); stroke:#444; }
+
+    @media (orientation: portrait) {
+      #guessInput {
+        font-size: 4vw;     /* 4% av viewport‐bredden */
+        padding: 1vw;
+      }
+      #score,
+      #correctName {
+        font-size: 4vw;
+      }
+    }
+
   </style>
 </head>
 <body>
