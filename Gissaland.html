@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="sv">
 <head>
-  <meta charset="utf-8" />
-  <title>Gissa landet – fungerande CDN-version</title>
-  <!-- UMD‐byggen som registrerar globalt topojson och d3 -->
+  <meta charset="utf-8"/>
+  <title>Gissa landet – cf13-quiz</title>
+
+  <!-- UMD-byggen som registrerar globalt d3 och topojson -->
   <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
+
   <style>
     html, body {
       margin: 0; padding: 0;
@@ -14,17 +16,20 @@
       font-family: sans-serif;
     }
     svg {
-      display: block;
       width: 100vw; height: 100vh;
+      display: block;
       cursor: move;
     }
     .country { fill: #e0e0e0; stroke: #aaa; }
     .focus   { fill: url(#flagPattern); stroke: #444; }
-    text     { font: 16px sans-serif; fill: #333; pointer-events: none; }
+
+    /* UI-container */
     #ui {
-      position: absolute; top:20px; left:20px;
+      position: absolute;
+      top: 20px; left: 20px;
       background: rgba(255,255,255,0.9);
-      padding: 8px 12px; border-radius: 6px;
+      padding: 8px 12px;
+      border-radius: 6px;
       z-index: 10;
     }
     #guessInput {
@@ -36,82 +41,85 @@
       margin-top: 6px;
       font: 14px sans-serif;
     }
+
+    /* Mini-flagga (HTML-img) */
     #miniFlag {
-      position: absolute; top:20px; right:20px;
+      position: absolute;
+      top: 20px; right: 20px;
       width: 160px; height: 120px;
-      border: 1px solid #888; cursor: pointer;
-      transition: box-shadow .3s ease;
+      border: 1px solid #888;
+      cursor: pointer;
+      transition: box-shadow 0.3s ease;
       z-index: 10;
+      background: white;
     }
     #miniFlag.correct { box-shadow: 0 0 0 4px limegreen; }
     #miniFlag.incorrect { box-shadow: 0 0 0 4px crimson; }
   </style>
 </head>
-<body>
 
-  <!-- UI i HTML -->
+<body>
+  <!-- UI-container med textfält och poäng -->
   <div id="ui">
-    <input id="guessInput" list="guessList" placeholder="Gissa landet..." autocomplete="off" />
+    <input id="guessInput" list="guessList" placeholder="Gissa landet..." autocomplete="off"/>
     <datalist id="guessList"></datalist>
     <div id="score">0/0 (Streak: 0)</div>
   </div>
 
-  <!-- Klickbar mini-flagga -->
-  <img id="miniFlag" src="" alt="Mini-flagga" />
+  <!-- Mini-flagga som knapp -->
+  <img id="miniFlag" src="" alt="Mini-flagga"/>
 
   <!-- SVG-kartan -->
   <svg></svg>
 
   <script>
-  // SVG & projection
-  const svg    = d3.select("svg");
-  const W      = window.innerWidth;
-  const H      = window.innerHeight;
-  const proj   = d3.geoMercator().scale(150).translate([W/2, H/2]);
-  const path   = d3.geoPath(proj);
-  const mapG   = svg.append("g");
+  // Hämta element + skapa SVG-grupper
+  const svg     = d3.select("svg");
+  const W       = window.innerWidth;
+  const H       = window.innerHeight;
+  const inputEl = document.getElementById("guessInput");
+  const listEl  = document.getElementById("guessList");
+  const scoreEl = document.getElementById("score");
+  const flagEl  = document.getElementById("miniFlag");
+
+  // Projektion + path
+  const proj = d3.geoMercator().scale(150).translate([W/2, H/2]);
+  const path = d3.geoPath(proj);
+  const mapG = svg.append("g");
 
   // defs + pattern för flaggfyllning
-  const defs   = svg.append("defs");
+  const defs    = svg.append("defs");
   const pattern = defs.append("pattern")
-    .attr("id", "flagPattern")
-    .attr("patternUnits", "objectBoundingBox")
-    .attr("patternContentUnits", "objectBoundingBox")
+    .attr("id","flagPattern")
+    .attr("patternUnits","objectBoundingBox")
+    .attr("patternContentUnits","objectBoundingBox")
     .attr("width",1).attr("height",1);
   const patImg = pattern.append("image")
-    .attr("x", 0).attr("y", 0)
-    .attr("width", 1).attr("height", 1)
-    .attr("preserveAspectRatio", "xMidYMid slice")
-    .attr("crossorigin", "anonymous");
+    .attr("x",0).attr("y",0)
+    .attr("width",1).attr("height",1)
+    .attr("preserveAspectRatio","xMidYMid slice")
+    .attr("crossorigin","anonymous");
 
-  // zoom-behavior
+  // Zoom-behaviour
   const zoom = d3.zoom()
     .scaleExtent([1, 8])
     .on("zoom", e => mapG.attr("transform", e.transform));
   svg.call(zoom);
 
-  // DOM-referenser
-  const inputEl  = document.getElementById("guessInput");
-  const listEl   = document.getElementById("guessList");
-  const scoreEl  = document.getElementById("score");
-  const miniFlag = document.getElementById("miniFlag");
-
-  // Score-state
+  // State för quiz
   let features, focus;
   let score = 0, attempts = 0, streak = 0, bestStreak = 0;
 
-  // Ladda data
+  // Ladda kartdata och flaggkoder
   Promise.all([
-    // Använd jsDelivr för world-atlas
     d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json"),
     d3.json("https://flagcdn.com/en/codes.json")
   ]).then(([topo, codes]) => {
-    // Bygg upp namn–kod mappning
+    // Bygg upp lista av features med namn
     const nameToISO = Object.fromEntries(Object.entries(codes));
-    const dnSV      = new Intl.DisplayNames(['sv'], {type:'region'});
-    const dnEN      = new Intl.DisplayNames(['en'], {type:'region'});
+    const dnSV = new Intl.DisplayNames(['sv'], {type:'region'});
+    const dnEN = new Intl.DisplayNames(['en'], {type:'region'});
 
-    // Extrahera features och utöka med namn
     features = topojson.feature(topo, topo.objects.countries).features
       .filter(f => nameToISO[f.properties.name])
       .map(f => {
@@ -123,7 +131,7 @@
         });
       });
 
-    // Autocomplete–lista
+    // Autocomplete-lista (svenska + engelska)
     const names = new Set();
     features.forEach(f => {
       names.add(f.nameSV);
@@ -140,13 +148,13 @@
       .data(features)
       .join("path")
         .attr("d", path)
-        .attr("class", "country");
+        .attr("class","country");
 
-    // Klickhantering
-    miniFlag.addEventListener("click", () => {
-      const guess = inputEl.value.trim().toLowerCase();
-      const ok    = [focus.nameSV, focus.nameEN]
-                     .some(n => n.toLowerCase() === guess);
+    // Klick på mini-flaggan = utvärdera
+    flagEl.addEventListener("click", () => {
+      const g = inputEl.value.trim().toLowerCase();
+      const ok = [focus.nameSV, focus.nameEN]
+        .some(n => n.toLowerCase() === g);
       attempts++;
       if (ok) {
         score++; streak++; bestStreak = Math.max(bestStreak, streak);
@@ -157,56 +165,57 @@
       }
       updateScore();
       inputEl.disabled = true;
-      miniFlag.style.pointerEvents = "none";
+      flagEl.style.pointerEvents = "none";
       setTimeout(startNew, 4000);
     });
 
-    // Starta första uppgiften
+    // Starta quiz
     startNew();
   });
 
+  // Uppdatera poäng-visning
   function updateScore() {
     scoreEl.textContent = `${score}/${attempts} (Streak: ${bestStreak})`;
   }
 
+  // Blink-effekt på mini-flagga
   function flash(cls) {
-    miniFlag.classList.add(cls);
-    setTimeout(() => miniFlag.classList.remove(cls), 500);
+    flagEl.classList.add(cls);
+    setTimeout(() => flagEl.classList.remove(cls), 500);
   }
 
+  // Ny fråga: slumpa land, ladda flagga, zooma karta, återställ UI
   function startNew() {
-    // välj nytt land i fokus
-    focus = features[Math.floor(Math.random()*features.length)];
+    focus = features[Math.floor(Math.random() * features.length)];
     const url = `https://flagcdn.com/w320/${focus.iso2}.png`;
 
-    // uppdatera pattern + mini-flagga
+    // Pattern + mini-flagga
     patImg.attr("href", url);
-    miniFlag.src = url;
+    flagEl.src = url;
 
-    // färga kartan
+    // Färga om kartan
     mapG.selectAll("path")
-      .attr("class", d => d===focus ? "focus" : "country");
+      .attr("class", d => d === focus ? "focus" : "country");
 
-    // zooma in över 4s
-    const [[x0,y0],[x1,y1]] = path.bounds(focus);
-    const dx = x1-x0, dy = y1-y0;
-    const cx = (x0+x1)/2, cy = (y0+y1)/2;
-    const maxS = Math.min(W/dx, H/dy)*0.8;
-    const s    = maxS*0.5;
+    // Zooma in centrerat över 4s
+    const b = path.bounds(focus);
+    const dx = b[1][0] - b[0][0];
+    const dy = b[1][1] - b[0][1];
+    const cx = (b[0][0] + b[1][0]) / 2;
+    const cy = (b[0][1] + b[1][1]) / 2;
+    const maxS = Math.min(W/dx, H/dy) * 0.8;
+    const s    = maxS * 0.5;
     const t    = [W/2 - s*cx, H/2 - s*cy];
 
     svg.transition().duration(4000)
-      .call(zoom.transform,
-        d3.zoomIdentity.translate(t[0],t[1]).scale(s)
-      );
+       .call(zoom.transform, d3.zoomIdentity.translate(t[0], t[1]).scale(s));
 
-    // återställ UI
+    // Reset UI
     inputEl.value = "";
     inputEl.disabled = false;
     inputEl.focus();
-    miniFlag.style.pointerEvents = "auto";
+    flagEl.style.pointerEvents = "auto";
   }
   </script>
-
 </body>
 </html>
