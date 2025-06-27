@@ -76,8 +76,8 @@
       transition:box-shadow .3s;
       background:#fff;
     }
-    #miniFlag.correct   { box-shadow:0 0 0 4px limegreen; }
-    #miniFlag.incorrect { box-shadow:0 0 0 4px crimson; }
+    #miniFlag.correct   { box-shadow:0 0 0 10px limegreen; }
+    #miniFlag.incorrect { box-shadow:0 0 0 10px crimson; }
 
     /* text under allt */
     #correctName {
@@ -125,10 +125,10 @@
     <div class="flag-column">
       <img id="miniFlag" src="" alt="Mini-flagga"/>
       <div id="ui">
+        <div id="score">0/0 (Streak: 0)</div>
         <input id="guessInput" list="guessList"
                placeholder="Guess country…" autocomplete="off"/>
         <datalist id="guessList"></datalist>
-        <div id="score">0/0 (Streak: 0)</div>
       </div>
       <div id="correctName"></div>
     </div>
