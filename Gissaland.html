@@ -2,77 +2,38 @@
 <html lang="sv">
 <head>
   <meta charset="utf-8"/>
-  <title>Debug &amp; Gissa landet</title>
+  <title>Gissa landet – färdig version</title>
 
-  <!-- UMD-globals för D3 och TopoJSON -->
+  <!-- UMD‐byggen av D3 & TopoJSON -->
   <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
 
   <style>
-    html, body {
-      margin:0; padding:0;
-      width:100%; height:100%;
-      overflow:hidden;
-      font-family:sans-serif;
-    }
-    /* DEBUG-panel */
-    #debug {
-      position:absolute;
-      top:0; left:0; right:0;
-      max-height:120px;
-      overflow:auto;
-      background: rgba(0,0,0,0.8);
-      color: #0f0;
-      font:12px monospace;
-      padding:8px;
-      z-index: 999;
-    }
-    /* Quiz-UI */
-    #ui {
-      position:absolute;
-      top:140px; left:20px;
-      background: rgba(255,255,255,0.9);
-      padding:8px;
-      border-radius:6px;
-      z-index:10;
-    }
-    #guessInput {
-      width:200px; padding:6px;
-      font:14px sans-serif;
-    }
-    #score {
-      margin-top:6px; font:14px sans-serif;
-    }
-    #miniFlag {
-      position:absolute;
-      top:140px; right:20px;
-      width:160px; height:120px;
-      border:1px solid #888;
-      cursor:pointer;
-      transition:box-shadow .3s;
-      z-index:10;
-    }
-    #miniFlag.correct { box-shadow:0 0 0 4px limegreen; }
-    #miniFlag.incorrect { box-shadow:0 0 0 4px crimson; }
-
-    svg {
-      position:absolute;
-      top:0; left:0;
-      width:100vw; height:100vh;
-      cursor:move;
-    }
+    html, body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; font-family:sans-serif; }
+    svg { width:100vw; height:100vh; display:block; cursor:move; }
     .country { fill:#e0e0e0; stroke:#aaa; }
     .focus   { fill:url(#flagPattern); stroke:#444; }
+    #ui {
+      position:absolute; top:20px; left:20px;
+      background:rgba(255,255,255,0.9);
+      padding:8px 12px; border-radius:6px; z-index:10;
+    }
+    #guessInput { width:200px; padding:6px 8px; font:14px sans-serif; }
+    #score      { margin-top:6px; font:14px sans-serif; }
+    #miniFlag {
+      position:absolute; top:20px; right:20px;
+      width:160px; height:120px;
+      border:1px solid #888; cursor:pointer;
+      transition:box-shadow 0.3s; z-index:10;
+      background:#fff;
+    }
+    #miniFlag.correct   { box-shadow:0 0 0 4px limegreen; }
+    #miniFlag.incorrect { box-shadow:0 0 0 4px crimson; }
   </style>
 </head>
 <body>
-
-  <!-- DEBUG PANEL -->
-  <div id="debug">» Init…</div>
-
-  <!-- QUIZ UI -->
   <div id="ui">
-    <input id="guessInput" list="guessList" placeholder="Gissa landet..." autocomplete="off"/>
+    <input id="guessInput" list="guessList" placeholder="Gissa landet…" autocomplete="off"/>
     <datalist id="guessList"></datalist>
     <div id="score">0/0 (Streak: 0)</div>
   </div>
@@ -80,32 +41,19 @@
   <svg></svg>
 
   <script>
-  // enkel on-page-logg
-  function log(msg) {
-    const d = document.getElementById("debug");
-    d.textContent += "\n» " + msg;
-    d.scrollTop = d.scrollHeight;
-  }
+  const svg     = d3.select("svg");
+  const W       = window.innerWidth, H = window.innerHeight;
+  const inputEl = document.getElementById("guessInput");
+  const listEl  = document.getElementById("guessList");
+  const scoreEl = document.getElementById("score");
+  const flagEl  = document.getElementById("miniFlag");
 
-  log("Script startar");
-  log("d3 • " + (typeof d3));
-  log("topojson • " + (typeof topojson));
-
-  // referenser
-  const svg     = d3.select("svg"),
-        W       = window.innerWidth,
-        H       = window.innerHeight,
-        inputEl = document.getElementById("guessInput"),
-        listEl  = document.getElementById("guessList"),
-        scoreEl = document.getElementById("score"),
-        flagEl  = document.getElementById("miniFlag");
-
-  // proj + path
+  // Projection & path
   const proj = d3.geoMercator().scale(150).translate([W/2, H/2]);
   const path = d3.geoPath(proj);
-  const g    = svg.append("g");
+  const mapG = svg.append("g");
 
-  // defs/pattern
+  // defs + pattern för flaggfyllning
   const defs    = svg.append("defs");
   const pattern = defs.append("pattern")
     .attr("id","flagPattern")
@@ -113,72 +61,71 @@
     .attr("patternContentUnits","objectBoundingBox")
     .attr("width",1).attr("height",1);
   const patImg = pattern.append("image")
+    .attr("x",0).attr("y",0)
     .attr("width",1).attr("height",1)
     .attr("preserveAspectRatio","xMidYMid slice")
     .attr("crossorigin","anonymous");
 
-  // zoom
+  // zoom-behavior
   const zoom = d3.zoom()
     .scaleExtent([1,8])
-    .on("zoom", evt => g.attr("transform", evt.transform));
+    .on("zoom", e => mapG.attr("transform", e.transform));
   svg.call(zoom);
 
-  let features, focus;
-  let score=0, attempts=0, streak=0, bestStreak=0;
+  // State
+  let features, focus, score=0, attempts=0, streak=0, bestStreak=0;
 
-  const topoURL  = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
-  const codesURL = "https://flagcdn.com/en/codes.json";
+  Promise.all([
+    d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json"),
+    d3.json("https://flagcdn.com/en/codes.json")
+  ]).then(([topo, codes]) => {
+    // 1) Invertera codes.json så att EnglishName → iso2
+    const nameToISO = Object.entries(codes)
+      .reduce((m,[iso,name]) => { m[name] = iso; return m; }, {});
 
-  log("Laddar GeoJSON…");
-  log(topoURL);
-  log("Laddar codes.json…");
-  log(codesURL);
+    // 2) Extrahera features och mappa på svenska + engelska namn
+    const dnSV = new Intl.DisplayNames(['sv'], {type:'region'});
+    const dnEN = new Intl.DisplayNames(['en'], {type:'region'});
 
-  Promise.all([ d3.json(topoURL), d3.json(codesURL) ])
-  .then(([topo, codes]) => {
-    log("TopoJSON OK, objects: " + Object.keys(topo.objects).join(", "));
-    log("Codes OK, count: " + Object.keys(codes).length);
-
-    // bygg features
     features = topojson.feature(topo, topo.objects.countries).features
-      .filter(f => codes[f.properties.name])
+      .filter(f => nameToISO[f.properties.name])
       .map(f => {
-        const iso2 = codes[f.properties.name];
+        const iso2 = nameToISO[f.properties.name];
         return Object.assign(f, {
           iso2,
-          nameSV: new Intl.DisplayNames(['sv'], {type:'region'}).of(iso2.toUpperCase()),
-          nameEN: new Intl.DisplayNames(['en'], {type:'region'}).of(iso2.toUpperCase())
+          nameEN: dnEN.of(iso2.toUpperCase()),
+          nameSV: dnSV.of(iso2.toUpperCase())
         });
       });
-    log("Antal features: " + features.length);
 
-    // autocomplete-lista
+    // 3) Populera autocomplete-lista (svenska + engelska)
     const names = new Set();
     features.forEach(f => { names.add(f.nameSV); names.add(f.nameEN); });
-    Array.from(names).sort().forEach(n => {
-      const opt = document.createElement("option"); opt.value = n;
+    [...names].sort().forEach(n => {
+      const opt = document.createElement("option");
+      opt.value = n;
       listEl.appendChild(opt);
     });
-    log("Autocomplete klar");
 
-    // rita bakgrundskarta
-    g.selectAll("path")
+    // 4) Rita upp bakgrundskartan
+    mapG.selectAll("path")
       .data(features)
       .join("path")
         .attr("d", path)
         .attr("class","country");
-    log("Kartan ritad");
 
-    // klick på flagga
+    // 5) Klick på flaggan = utvärdera
     flagEl.addEventListener("click", () => {
-      const giss = inputEl.value.trim().toLowerCase();
-      const ok   = [focus.nameSV, focus.nameEN].some(n => n.toLowerCase()===giss);
+      const guess = inputEl.value.trim().toLowerCase();
+      const ok    = [focus.nameEN, focus.nameSV]
+                      .some(n => n.toLowerCase() === guess);
       attempts++;
       if(ok) {
         score++; streak++; bestStreak = Math.max(bestStreak, streak);
-        flash("correct"); log("RÄTT: " + inputEl.value);
+        flash("correct");
       } else {
-        streak=0; flash("incorrect"); log("FEL: " + inputEl.value);
+        streak = 0;
+        flash("incorrect");
       }
       updateScore();
       inputEl.disabled = true;
@@ -186,10 +133,8 @@
       setTimeout(startNew, 4000);
     });
 
+    // Starta första rundan
     startNew();
-  })
-  .catch(err => {
-    log("❌ FEL vid dataladdning: " + err);
   });
 
   function updateScore() {
@@ -198,26 +143,27 @@
 
   function flash(cls) {
     flagEl.classList.add(cls);
-    setTimeout(()=>flagEl.classList.remove(cls),500);
+    setTimeout(()=>flagEl.classList.remove(cls), 500);
   }
 
   function startNew() {
     focus = features[Math.floor(Math.random()*features.length)];
     const url = `https://flagcdn.com/w320/${focus.iso2}.png`;
-    log("Ny fråga → " + focus.nameSV + " / " + focus.nameEN);
 
+    // uppdatera pattern + mini-flagga
     patImg.attr("href",url);
     flagEl.src = url;
 
-    g.selectAll("path")
-      .attr("class", d=> d===focus ? "focus":"country");
+    // markera fokusland på kartan
+    mapG.selectAll("path")
+      .attr("class", d => d === focus ? "focus" : "country");
 
     // zooma in
     const b = path.bounds(focus);
-    const dx=b[1][0]-b[0][0], dy=b[1][1]-b[0][1];
-    const cx=(b[0][0]+b[1][0])/2, cy=(b[0][1]+b[1][1])/2;
-    const maxS=Math.min(W/dx,H/dy)*0.8, s=maxS*0.5;
-    const t=[W/2-s*cx, H/2-s*cy];
+    const dx = b[1][0] - b[0][0], dy = b[1][1] - b[0][1];
+    const cx = (b[0][0]+b[1][0])/2, cy = (b[0][1]+b[1][1])/2;
+    const maxS = Math.min(W/dx, H/dy)*0.8, s = maxS*0.5;
+    const t = [W/2 - s*cx, H/2 - s*cy];
 
     svg.transition().duration(4000)
       .call(zoom.transform, d3.zoomIdentity.translate(t[0],t[1]).scale(s));
@@ -225,8 +171,8 @@
     // återställ UI
     inputEl.value = "";
     inputEl.disabled = false;
-    flagEl.style.pointerEvents = "auto";
     inputEl.focus();
+    flagEl.style.pointerEvents = "auto";
   }
   </script>
 </body>
