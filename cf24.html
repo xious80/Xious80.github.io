@@ -4,14 +4,12 @@
   <meta charset="utf-8"/>
   <title>Guess the country</title>
 
-  <!-- D3+TopoJSON -->
+  <!-- UMD‐byggen -->
   <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
 
   <style>
-    /* ------------------------------------------
-       1) Blockera browser‐zoom på hela sidan
-    ------------------------------------------- */
+    /* Stoppa browser‐zoom på hela sidan */
     html, body {
       margin:0; padding:0;
       width:100%; height:100%;
@@ -21,58 +19,56 @@
       overscroll-behavior: none;
     }
 
-    /* ------------------------------------------
-       2) Quiz‐container (UI får eget touch)
-    ------------------------------------------- */
+    /* DEBUG‐panel – kvar men kommenterad i HTML */
+    #debug {
+      position:absolute; top:0; left:0; right:0;
+      max-height:120px; overflow:auto;
+      background:rgba(0,0,0,0.8); color:#0f0;
+      font:12px monospace; padding:8px; white-space:pre-wrap;
+      z-index:999;
+    }
+
     .quiz-container {
       position:absolute;
       top:10px; right:10px;
+      display:flex;
+      align-items:flex-start;
       z-index:10;
+      /* Ge UI normalt touch‐beteende */
       touch-action:auto;
     }
 
-    /* ------------------------------------------
-       3) Flag‐column: default desktop
-    ------------------------------------------- */
+    /* kolumn med flagga, UI, korrekt namn */
     .flag-column {
       display:flex;
       flex-direction:column;
       align-items:center;
-      width:160px;        /* desktop‐bredd */
+      width:160px;  /* samma som flaggan */
       gap:6px;
     }
 
-    /* ------------------------------------------
-       4) UI under flagga
-    ------------------------------------------- */
+    /* UI under flaggan */
     #ui {
-      width:100%;
+      width:160px;
       background:rgba(255,255,255,0.9);
-      padding:4px 6px;
+      padding:0px 0px;
       border-radius:4px;
     }
     #guessInput {
-      width:100%;
-      padding:6px;
+      width:156px;
+      padding:0px;
       font:12px sans-serif;
-      /* slå av stavningsförslag */
-      autocomplete: off;
-      autocorrect: off;
-      autocapitalize: none;
-      spellcheck: false;
-      inputmode: text;
     }
     #score {
-      width:100%; margin-top:6px;
-      font:12px sans-serif; text-align:center;
+      width:100%;
+      margin-top:6px;
+      font:12px sans-serif;
+      text-align:center;
     }
 
-    /* ------------------------------------------
-       5) Mini‐flagga
-    ------------------------------------------- */
+    /* mini-flagga */
     #miniFlag {
-      width:100%;
-      aspect-ratio: 4 / 3;
+      width:160px; height:120px;
       border:1px solid #888;
       cursor:pointer;
       transition:box-shadow .3s;
@@ -81,53 +77,35 @@
     #miniFlag.correct   { box-shadow:0 0 0 4px limegreen; }
     #miniFlag.incorrect { box-shadow:0 0 0 4px crimson; }
 
-    /* ------------------------------------------
-       6) Text under flagga/UI
-    ------------------------------------------- */
+    /* text under allt */
     #correctName {
-      width:100%; text-align:center;
-      font:12px sans-serif; color:crimson;
-      overflow:hidden; white-space:nowrap;
+      width:100%;
+      text-align:center;
+      font:12px sans-serif;
+      color:crimson;
+      overflow:hidden;
+      white-space:nowrap;
       text-overflow:ellipsis;
     }
 
-    /* ------------------------------------------
-       7) SVG/karta – D3 hanterar pinch & drag
-    ------------------------------------------- */
+    /* SVG/fullskärmskarta – D3 hanterar pinch/drag här */
     svg {
       position:absolute;
       top:0; left:0;
       width:100vw; height:100vh;
       cursor:move;
-      touch-action:none;
-      overscroll-behavior:none;
+      touch-action: none;
+      overscroll-behavior: none;
     }
     .country { fill:#e0e0e0; stroke:#aaa; }
     .focus   { fill:url(#flagPattern); stroke:#444; }
-
-    /* ------------------------------------------
-       8) Mobile‐portrait: responsiv bredd 25vw,
-          och fäst portrait‐layout
-    ------------------------------------------- */
-    @media (orientation: portrait) {
-      /* försök låsa orientation (Chrome+Android) */
-      @supports (screen-orientation: portrait) {
-        html { screen-orientation: portrait; }
-      }
-      .flag-column {
-        width: 25vw;
-        max-width: 200px;
-      }
-      #ui, #correctName {
-        font-size: 1.1em;
-      }
-    }
   </style>
 </head>
 <body>
 
-  <!-- DEBUG‐panel -->
-  <!-- <div id="debug">» Init…</div> -->
+  <!--
+  <div id="debug">» Init…</div>
+  -->
 
   <div class="quiz-container">
     <div class="flag-column">
@@ -145,10 +123,9 @@
   <svg></svg>
 
   <script>
-  // Kort logger
-  function log(...m) {
+  function log(...msgs) {
     const d = document.getElementById("debug");
-    if (d) d.textContent += "\n» " + m.join(" ");
+    if (d) d.textContent += "\n» " + msgs.join(" ");
   }
 
   const svg     = d3.select("svg");
@@ -160,12 +137,12 @@
   const flagEl  = document.getElementById("miniFlag");
   const msgEl   = document.getElementById("correctName");
 
-  // geografisk projektion
+  // Geo‐projection och path
   const proj = d3.geoMercator().scale(150).translate([W/2, H/2]);
   const path = d3.geoPath(proj);
   const mapG = svg.append("g");
 
-  // defs/pattern för flaggfyllning
+  // Pattern för flaggfyllning
   const defs    = svg.append("defs");
   const pattern = defs.append("pattern")
     .attr("id","flagPattern")
@@ -178,7 +155,7 @@
     .attr("preserveAspectRatio","xMidYMid slice")
     .attr("crossorigin","anonymous");
 
-  // zoom‐inställningar [0.5–8], enda på SVG
+  // Zoom‐inställningar, tillåter [0.5–8]
   const MIN_Z = 0.5, MAX_Z = 8;
   const zoom = d3.zoom()
     .filter(e => !e.target.closest('.quiz-container'))
@@ -189,17 +166,16 @@
   let features, focus;
   let score=0, attempts=0, streak=0, bestStreak=0;
 
-  // Data‐URLer
   const topoURL  = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
   const codesURL = "https://flagcdn.com/en/codes.json";
 
   Promise.all([ d3.json(topoURL), d3.json(codesURL) ])
   .then(([topo, codes]) => {
-    // build EnglishName→ISO₂
+    // EnglishName → ISO₂
     const nameToISO = Object.entries(codes)
       .reduce((m,[iso,name]) => (m[name]=iso, m), {});
 
-    // alias för “vita fläckar”
+    // Alias för vita fläckar
     nameToISO["United States of America"] = nameToISO["United States"];
     nameToISO["Dem. Rep. Congo"]          = nameToISO["Republic of the Congo"];
     nameToISO["S. Sudan"]                 = nameToISO["South Sudan"];
@@ -211,7 +187,7 @@
     nameToISO["Bosnia and Herz."]         = nameToISO["Bosnia and Herzegovina"];
     nameToISO["Macedonia"]                = nameToISO["North Macedonia"];
 
-    // bygg features‐array
+    // Bygg features-array
     features = topojson.feature(topo, topo.objects.countries).features
       .filter(f => nameToISO[f.properties.name])
       .map(f => ({
@@ -220,21 +196,22 @@
         nameEN: f.properties.name
       }));
 
-    // autocomplete
-    features.map(f => f.nameEN).sort().forEach(n => {
-      const o = document.createElement("option");
-      o.value = n;
-      listEl.appendChild(o);
-    });
+    // Autocomplete
+    features.map(f => f.nameEN).sort()
+      .forEach(name => {
+        const o = document.createElement("option");
+        o.value = name;
+        listEl.appendChild(o);
+      });
 
-    // rita bas‐karta
+    // Rita bas‐karta
     mapG.selectAll("path")
       .data(features)
       .join("path")
         .attr("d", path)
         .attr("class", "country");
 
-    // gissnings‐logik
+    // Gissa på klick
     flagEl.addEventListener("click", () => {
       const guess = inputEl.value.trim().toLowerCase();
       const ok    = focus.nameEN.toLowerCase() === guess;
@@ -258,10 +235,10 @@
   })
   .catch(err => log("❌ FEL vid inläsning:", err));
 
-  function updateScore() {
+  function updateScore(){
     scoreEl.textContent = `${score}/${attempts} (Streak: ${bestStreak})`;
   }
-  function flash(cls) {
+  function flash(cls){
     flagEl.classList.add(cls);
     setTimeout(()=>flagEl.classList.remove(cls),500);
   }
@@ -270,16 +247,14 @@
     msgEl.textContent = "";
     focus = features[Math.floor(Math.random()*features.length)];
 
-    // uppdatera flagga/pattern
     const url = `https://flagcdn.com/w320/${focus.iso2}.png`;
     patImg.attr("href", url);
     flagEl.src = url;
 
-    // markera fokus
     mapG.selectAll("path")
-      .attr("class", d => d===focus ? "focus":"country");
+      .attr("class", d => d === focus ? "focus":"country");
 
-    // räkna ut ny transform – centrera på övre halvan (H/4)
+    // Beräkna zoom‐transform
     const b  = path.bounds(focus),
           dx = b[1][0]-b[0][0],
           dy = b[1][1]-b[0][1],
@@ -287,23 +262,22 @@
           cy = (b[0][1]+b[1][1])/2,
           maxS = Math.min(W/dx, H/dy) * 0.8;
     let s = maxS * 0.5;
-    s = Math.min(s, MAX_Z);   // bara clampa övre
-    const t = [ W/2 - s*cx,
-                H/4 - s*cy ]; // ändrat till H/4 för Y
+    // bara clampa övre gränsen
+    s = Math.min(s, MAX_Z);
+    const t = [W/2 - s*cx, H/4 - s*cy];
 
-    svg.transition().duration(6000)
+    svg.transition().duration(5000)
       .call(zoom.transform,
         d3.zoomIdentity.translate(t[0],t[1]).scale(s)
       );
 
-    // återställ UI
     inputEl.value = "";
     inputEl.disabled = false;
     flagEl.style.pointerEvents = "auto";
     inputEl.focus();
   }
 
-  // stoppa desktop‐zoom
+  // Stoppa desktop‐zoom
   window.addEventListener('wheel', e=>{
     if (e.ctrlKey||e.metaKey) e.preventDefault();
   }, {passive:false});
